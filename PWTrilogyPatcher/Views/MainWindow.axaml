@@ -7,9 +7,33 @@
         x:Class="PWTrilogyPatcher.Views.MainWindow"
 		x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/icon.ico"
-        Title="Parcheador de Phoenix Wright: Ace Attorney Trilogy"
+        Title="{Binding WindowTitle}"
 		WindowStartupLocation="CenterScreen"
 		Width="1258" Height="668"
-		CanResize="False"
-		Content="{Binding ContentViewModel}">
+		CanResize="False">
+	<Panel>
+		<ContentControl Content="{Binding ContentViewModel}"/>
+
+		<!-- Selector de idioma en esquina superior derecha -->
+		<Border HorizontalAlignment="Right"
+				VerticalAlignment="Top"
+				Margin="0,14,20,0"
+				Background="#D0000000"
+				CornerRadius="6"
+				Padding="6,4">
+			<StackPanel Orientation="Horizontal" Spacing="6">
+				<TextBlock Text="🌐"
+						   FontSize="14"
+						   VerticalAlignment="Center"
+						   Foreground="White"/>
+				<ComboBox SelectedIndex="{Binding SelectedLanguageIndex}"
+						  ItemsSource="{Binding AvailableLanguages}"
+						  FontFamily="{StaticResource GameFont}"
+						  FontSize="13"
+						  Width="180"
+						  Height="30"
+						  VerticalAlignment="Center"/>
+			</StackPanel>
+		</Border>
+	</Panel>
 </Window>

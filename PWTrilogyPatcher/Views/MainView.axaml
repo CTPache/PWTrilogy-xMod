@@ -21,10 +21,10 @@
 
 			<StackPanel Grid.Row="1"
 						Orientation="Horizontal"
-						HorizontalAlignment="Center">
+						HorizontalAlignment="Center"
+						Spacing="36">
 
 				<Button x:CompileBindings="False"
-						Margin="0,0,23,0"
 						Classes="GameButton"
 						HorizontalAlignment="Center"
 						Command="{Binding $parent[Window].DataContext.SetPatcherViewModel}">
@@ -34,11 +34,10 @@
 							   FontSize="22"
 							   LineHeight="23"
 							   Foreground="White"
-							   Text="Parchear"/>
+							   Text="{Binding PatchButtonText}"/>
 				</Button>
 
 				<Button x:CompileBindings="False"
-						Margin="23,0,23,0"
 						Classes="GameButton"
 						HorizontalAlignment="Center"
 						Command="{Binding CreditsButtonCommand}">
@@ -48,25 +47,10 @@
 							   FontSize="22"
 							   LineHeight="23"
 							   Foreground="White"
-							   Text="Créditos"/>
+							   Text="{Binding CreditsButtonText}"/>
 				</Button>
 
 				<Button x:CompileBindings="False"
-						Margin="23,0,23,0"
-						Classes="GameButton"
-						HorizontalAlignment="Center"
-						Command="{Binding DiscordButtonCommand}">
-					<TextBlock TextAlignment="Center"
-							   VerticalAlignment="Center"
-							   FontFamily="{StaticResource GameFont}"
-							   FontSize="22"
-							   LineHeight="23"
-							   Foreground="White"
-							   Text="Discord"/>
-				</Button>
-
-				<Button x:CompileBindings="False"
-						Margin="23,0,0,0"
 						Classes="GameButton"
 						HorizontalAlignment="Center"
 						Command="{Binding CloseButtonCommand}">
@@ -76,7 +60,7 @@
 							   FontSize="22"
 							   LineHeight="23"
 							   Foreground="White"
-							   Text="Salir"/>
+							   Text="{Binding ExitButtonText}"/>
 				</Button>
 
 			</StackPanel>

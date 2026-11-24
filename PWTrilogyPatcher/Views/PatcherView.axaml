@@ -32,7 +32,7 @@
 
 				<Grid ShowGridLines="False"
 					  Grid.Row="0"
-					  RowDefinitions="*,Auto,*">
+					  RowDefinitions="*,Auto,Auto,*">
 
 					<TextBlock Grid.Row="0"
 							   TextAlignment="Center"
@@ -58,7 +58,24 @@
 								Command="{Binding OpenFolderCommand}"/>
 					</Grid>
 
-					<TextBlock Grid.Row="2"
+					<StackPanel Grid.Row="2"
+								Orientation="Horizontal"
+								HorizontalAlignment="Center"
+								Margin="0,8,0,4">
+						<TextBlock Text="{Binding VersionLabel}"
+								   VerticalAlignment="Center"
+								   FontFamily="{StaticResource GameFont}"
+								   FontSize="20"
+								   Foreground="Black"
+								   Margin="0,0,6,0"/>
+						<ComboBox SelectedIndex="{Binding SelectedTargetIndex}"
+								  ItemsSource="{Binding TargetVersions}"
+								  FontFamily="{StaticResource GameFont}"
+								  FontSize="16"
+								  Width="280"/>
+					</StackPanel>
+
+					<TextBlock Grid.Row="3"
 							   TextAlignment="Center"
 							   VerticalAlignment="Center"
 							   FontFamily="{StaticResource GameFont}"
@@ -85,7 +102,7 @@
 								   FontSize="22"
 								   LineHeight="23"
 								   Foreground="{Binding CanPatch, Converter={StaticResource ButtonColorConverter}}"
-								   Text="Parchear"/>
+								   Text="{Binding PatchButtonText}"/>
 					</Button>
 
 					<Button x:CompileBindings="False"
@@ -99,7 +116,7 @@
 								   FontSize="22"
 								   LineHeight="23"
 								   Foreground="White"
-								   Text="Volver"/>
+								   Text="{Binding BackButtonText}"/>
 					</Button>
 
 				</Grid>
@@ -134,7 +151,7 @@
 								   FontSize="22"
 								   LineHeight="23"
 								   Foreground="White"
-								   Text="Volver"/>
+								   Text="{Binding BackButtonText}"/>
 					</Button>
 				</Grid>
 				

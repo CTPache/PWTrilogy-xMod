@@ -1,4 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.Input;
+using PWTrilogyPatcher.Services;
+using System;
 using System.Diagnostics;
 using System.Net;
 using System.Runtime.InteropServices;
@@ -7,6 +9,22 @@ namespace PWTrilogyPatcher.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
+    public string PatchButtonText => LocalizationService.Instance.BtnPatch;
+    public string CreditsButtonText => LocalizationService.Instance.BtnCredits;
+    public string ExitButtonText => LocalizationService.Instance.BtnExit;
+
+    public MainViewModel()
+    {
+        LocalizationService.Instance.LanguageChanged += OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged()
+    {
+        OnPropertyChanged(nameof(PatchButtonText));
+        OnPropertyChanged(nameof(CreditsButtonText));
+        OnPropertyChanged(nameof(ExitButtonText));
+    }
+
     //https://brockallen.com/2016/09/24/process-start-for-urls-on-net-core/
     public static void OpenBrowser(string url)
     {
@@ -41,27 +59,6 @@ public partial class MainViewModel : ViewModelBase
     private void CreditsButton()
     {
         OpenBrowser("https://github.com/Traducciones-Kurain/PWTrilogy-ESP/blob/master/README.md#cr%C3%A9ditos");
-    }
-
-    [RelayCommand]
-    private void DiscordButton()
-    {
-        // Para evitar que el invite cambie y no se pueda entrar mas, mejor descargar la url desde el repositorio mismo
-        try
-        {
-            using (WebClient client = new WebClient())
-            {
-                string rawInviteUrl = "https://raw.githubusercontent.com/Traducciones-Kurain/PWTrilogy-ESP/master/invite.txt";
-                string discordInvite = client.DownloadString(rawInviteUrl);
-
-                OpenBrowser(discordInvite);
-            }
-        }
-        // O usar este guardado que hasta la fecha sigue funcionando
-        catch
-        {
-            OpenBrowser("https://discord.gg/dtaFZcWmUA");
-        }
     }
 
     [RelayCommand]

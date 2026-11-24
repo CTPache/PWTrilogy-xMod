@@ -4,9 +4,18 @@ using Mara.Lib;
 using Newtonsoft.Json;
 using System;
 using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace PWTrilogyPatcher.CustomMara;
+
+public enum TargetPlatform
+{
+    Win32,
+    Win64,
+    Linux
+}
 
 // based on https://github.com/TraduSquare/Mara/blob/0b0879ae54e373708f6729de6acf70c1a06399a8/Mara.Lib/Platforms/PatchProcess.cs
 // and      https://github.com/TraduSquare/Mara/blob/0b0879ae54e373708f6729de6acf70c1a06399a8/Mara.Lib/Platforms/Generic/Main.cs
@@ -27,18 +36,51 @@ public class PatchProcessAsync
         ExtractPatch();
     }
 
-    public async Task<(int, string)> ApplyTranslation(IProgress<(string, string)> progress)
+    public async Task<(int, string)> ApplyTranslation(IProgress<(string, string)> progress, TargetPlatform targetPlatform = TargetPlatform.Win32)
     {
-        var count = maraConfig.FilesInfo.ListOriFiles.Length;
-        var files = maraConfig.FilesInfo;
+        // Step 1: In-place decrypt of vanilla StreamingAssets (unity3d, bin, mdt, cho, mh)
+        await Task.Run(() => CapcomCrypto.DecryptStreamingAssets(oriFolder));
 
-        for (int i = 0; i < count; i++)
+        // Step 2: Copy new files directly if 'copy' folder is present in the patch
+        string copyFolder = Path.Combine(tempFolder, "copy");
+        string[] newFiles = Array.Empty<string>();
+        if (Directory.Exists(copyFolder))
+        {
+            newFiles = Directory.GetFiles(copyFolder, "*.*", SearchOption.AllDirectories);
+        }
+
+        var xdeltaCount = maraConfig.FilesInfo.ListOriFiles?.Length ?? 0;
+        var totalCount = newFiles.Length + xdeltaCount;
+        int currentProgress = 0;
+
+        if (newFiles.Length > 0)
+        {
+            await Task.Run(() =>
+            {
+                foreach (var srcFile in newFiles)
+                {
+                    string relPath = Path.GetRelativePath(copyFolder, srcFile);
+                    string destFile = Path.Combine(oriFolder, relPath);
+                    string destDir = Path.GetDirectoryName(destFile);
+
+                    if (!string.IsNullOrWhiteSpace(destDir) && !Directory.Exists(destDir))
+                        Directory.CreateDirectory(destDir);
+
+                    File.Copy(srcFile, destFile, true);
+                    currentProgress++;
+                    progress.Report((currentProgress.ToString(), totalCount.ToString()));
+                }
+            });
+        }
+
+        // Step 3: Apply Xdeltas
+        var files = maraConfig.FilesInfo;
+        for (int i = 0; i < xdeltaCount; i++)
         {
             var excludeFile = false;
 
             if (files.ListExcludeFiles != null)
                 excludeFile = CheckExcludeFile(files.ListOriFiles[i]);
-
 
             var oriFile = files.ListOriFiles[i].Replace('\\', Path.DirectorySeparatorChar);
             var xdelta = files.ListXdeltaFiles[i].Replace('\\', Path.DirectorySeparatorChar);
@@ -53,7 +95,57 @@ public class PatchProcessAsync
             if (result.Item1 != 0)
                 return result;
 
-            progress.Report((i.ToString(), count.ToString()));
+            currentProgress++;
+            progress.Report((currentProgress.ToString(), totalCount.ToString()));
+        }
+
+        // Step 4: Deploy target-specific platform files (Win64 or Linux)
+        string? targetSubfolder = targetPlatform switch
+        {
+            TargetPlatform.Win64 => "targets" + Path.DirectorySeparatorChar + "win64",
+            TargetPlatform.Linux => "targets" + Path.DirectorySeparatorChar + "linux",
+            _ => null
+        };
+
+        if (!string.IsNullOrEmpty(targetSubfolder))
+        {
+            string targetFolder = Path.Combine(tempFolder, targetSubfolder);
+            if (Directory.Exists(targetFolder))
+            {
+                await Task.Run(() =>
+                {
+                    var targetFiles = Directory.GetFiles(targetFolder, "*.*", SearchOption.AllDirectories);
+                    foreach (var srcFile in targetFiles)
+                    {
+                        string relPath = Path.GetRelativePath(targetFolder, srcFile);
+                        string destFile = Path.Combine(oriFolder, relPath);
+                        string destDir = Path.GetDirectoryName(destFile);
+
+                        if (!string.IsNullOrWhiteSpace(destDir) && !Directory.Exists(destDir))
+                            Directory.CreateDirectory(destDir);
+
+                        File.Copy(srcFile, destFile, true);
+                    }
+                });
+
+                if (targetPlatform == TargetPlatform.Linux && (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) || RuntimeInformation.IsOSPlatform(OSPlatform.OSX)))
+                {
+                    try
+                    {
+                        string exePath = Path.Combine(oriFolder, "PWAAT.x86_64");
+                        if (File.Exists(exePath))
+                        {
+                            File.SetUnixFileMode(exePath, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                                                         UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                                                         UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[PatchProcess] Error setting executable mode: {ex.Message}");
+                    }
+                }
+            }
         }
 
         DeleteTempFolder();
@@ -65,8 +157,6 @@ public class PatchProcessAsync
         var originalFile = $"{oriFolder}{Path.DirectorySeparatorChar}{file}";
         var xdeltaFile = $"{tempFolder}{Path.DirectorySeparatorChar}{xdelta}";
         var outFile = $"{oriFolder}{Path.DirectorySeparatorChar}{result}";
-
-        bool isNewFile = file != result;
 
         string oriPath = originalFile + "_ori";
         string fileToPatch;

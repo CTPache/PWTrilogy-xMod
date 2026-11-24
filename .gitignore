@@ -363,3 +363,7 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Embedded encrypted patch payload (dynamically generated during build)
+PWTrilogyPatcher/Resources/
+*.bin

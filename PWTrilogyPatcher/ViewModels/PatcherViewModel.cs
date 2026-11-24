@@ -8,6 +8,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace PWTrilogyPatcher.ViewModels;
@@ -31,23 +32,14 @@ public enum GamePlatform
 
 public partial class PatcherViewModel : ViewModelBase
 {
-    public string PathWatermark => "Introduce la ruta del juego aquí";
-    public const string HeaderStatusConst = "Elige la ruta de juego:";
-
-    public const string StatusNoFolder = "Introduce la ruta de juego.";
-    public const string StatusInvalidFolder = "Ruta de juego inválida";
-    public const string StatusDetectedFolder = "Ruta de juego detectada.";
-    public const string StatusValidFolderLine1 = "Plataforma detectada: ";
-    public const string StatusValidFolderLine2 = "Listo para aplicar.";
-    public const string StatusDownloading = "Descargando el parche...";
-    public const string StatusPatching = "Aplicando el parche...";
-    public const string StatusPatchError1 = $"Error al aplicar el parche.";
-    public const string StatusPatchError2 = $"Revisa el archivo error.log";
-    public const string StatusPatchError3 = $"Si necesitas soporte técnico, visita el servidor";
-    public const string StatusPatchError4 = $"de Discord de Traducciones Kurain.";
-    public const string StatusPatchSuccess = "¡Se ha parcheado el juego con éxito!";
+    public string PathWatermark => LocalizationService.Instance.PathWatermark;
+    public string VersionLabel => LocalizationService.Instance.VersionLabel;
+    public string[] TargetVersions => LocalizationService.Instance.TargetVersions;
+    public string PatchButtonText => LocalizationService.Instance.BtnPatch;
+    public string BackButtonText => LocalizationService.Instance.BtnBack;
 
     private static bool didForcedUpdate = false;
+    private bool detectedPath = false;
 
     public PatcherStatus PatcherStatus
     {
@@ -55,32 +47,36 @@ public partial class PatcherViewModel : ViewModelBase
         set
         {
             patcherStatus = value;
+            UpdateStatusMessage();
+        }
+    }
 
-            switch (patcherStatus)
-            {
-                default:
-                case PatcherStatus.NoFolder:
-                    Status = StatusNoFolder;
-                    break;
-                case PatcherStatus.InvalidFolder:
-                    Status = StatusInvalidFolder;
-                    break;
-                case PatcherStatus.ValidFolder:
-                    Status = $"{StatusValidFolderLine1}{GetPlatformString()}{Environment.NewLine}{StatusValidFolderLine2}";
-                    break;
-                case PatcherStatus.Downloading:
-                    Status = StatusDownloading;
-                    break;
-                case PatcherStatus.Patching:
-                    Status = StatusPatching;
-                    break;
-                case PatcherStatus.PatchError:
-                    Status = $"{StatusPatchError1}{Environment.NewLine}{StatusPatchError2}{Environment.NewLine}{Environment.NewLine}{StatusPatchError3}{Environment.NewLine}{StatusPatchError4}";
-                    break;
-                case PatcherStatus.PatchSuccess:
-                    Status = StatusPatchSuccess;
-                    break;
-            }
+    private void UpdateStatusMessage()
+    {
+        switch (patcherStatus)
+        {
+            default:
+            case PatcherStatus.NoFolder:
+                Status = LocalizationService.Instance.StatusNoFolder;
+                break;
+            case PatcherStatus.InvalidFolder:
+                Status = LocalizationService.Instance.StatusInvalidFolder;
+                break;
+            case PatcherStatus.ValidFolder:
+                Status = $"{LocalizationService.Instance.GetStatusPlatformDetected(GetPlatformString())}{Environment.NewLine}{LocalizationService.Instance.StatusReadyToPatch}";
+                break;
+            case PatcherStatus.Downloading:
+                Status = LocalizationService.Instance.StatusDownloading;
+                break;
+            case PatcherStatus.Patching:
+                Status = LocalizationService.Instance.StatusPatching;
+                break;
+            case PatcherStatus.PatchError:
+                Status = LocalizationService.Instance.StatusPatchError;
+                break;
+            case PatcherStatus.PatchSuccess:
+                Status = LocalizationService.Instance.StatusPatchSuccess;
+                break;
         }
     }
 
@@ -149,14 +145,36 @@ public partial class PatcherViewModel : ViewModelBase
     private GamePlatform gamePlatform;
 
     [ObservableProperty]
+    private TargetPlatform targetPlatform;
+
+    [ObservableProperty]
+    private int selectedTargetIndex;
+
+    partial void OnSelectedTargetIndexChanged(int value)
+    {
+        TargetPlatform = (TargetPlatform)value;
+    }
+
+    [ObservableProperty]
     private string headerStatus = string.Empty;
 
     public PatcherViewModel()
     {
-        bool detectedPath = false;
         updateMode = App.UpdateMode;
 
-        HeaderStatus = HeaderStatusConst;
+        HeaderStatus = LocalizationService.Instance.HeaderSelectPath;
+        LocalizationService.Instance.LanguageChanged += RefreshLocalizedStrings;
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            TargetPlatform = TargetPlatform.Linux;
+            SelectedTargetIndex = 2;
+        }
+        else
+        {
+            TargetPlatform = TargetPlatform.Win32;
+            SelectedTargetIndex = 0;
+        }
 
         if (updateMode)
         {
@@ -187,11 +205,38 @@ public partial class PatcherViewModel : ViewModelBase
 
         if (detectedPath)
         {
-            Status = $"{StatusDetectedFolder}{Environment.NewLine}{Environment.NewLine}{Status}";
+            Status = $"{LocalizationService.Instance.StatusDetectedFolder}{Environment.NewLine}{Environment.NewLine}{Status}";
             return;
         }
 
         PatcherStatus = PatcherStatus.NoFolder;
+    }
+
+    private void RefreshLocalizedStrings()
+    {
+        HeaderStatus = LocalizationService.Instance.HeaderSelectPath;
+        OnPropertyChanged(nameof(PathWatermark));
+        OnPropertyChanged(nameof(VersionLabel));
+        OnPropertyChanged(nameof(TargetVersions));
+        OnPropertyChanged(nameof(PatchButtonText));
+        OnPropertyChanged(nameof(BackButtonText));
+
+        if (PatcherStatus == PatcherStatus.Downloading)
+        {
+            UpdateDownloadProgress();
+        }
+        else if (PatcherStatus == PatcherStatus.Patching)
+        {
+            UpdatePatchProgress();
+        }
+        else
+        {
+            UpdateStatusMessage();
+            if (detectedPath && PatcherStatus == PatcherStatus.ValidFolder)
+            {
+                Status = $"{LocalizationService.Instance.StatusDetectedFolder}{Environment.NewLine}{Environment.NewLine}{Status}";
+            }
+        }
     }
 
     [RelayCommand]
@@ -206,14 +251,15 @@ public partial class PatcherViewModel : ViewModelBase
         GamePath = folder.TryGetLocalPath();
     }
 
+    private bool isDecrypting = false;
+
     [RelayCommand]
     private async Task StartPatch()
     {
         CanPatch = false;
         StartedPatch = true;
 
-        var platform = GetPlatformString();
-        string downloadPath = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}Patch-{platform}.zip";
+        string? tempDecryptedZip = null;
 
         try
         {
@@ -226,23 +272,71 @@ public partial class PatcherViewModel : ViewModelBase
                 TotalText = value.Item2;
             });
 
-            if (!File.Exists(downloadPath))
-            {
-                PatcherStatus = PatcherStatus.Downloading;
+            var gamePath = GetContentFolder(GamePath);
+            string patchZipPath;
 
-                var downloadUrl = $"https://github.com/Traducciones-Kurain/PWTrilogy-ESP/releases/latest/download/Patch-{platform}.zip";
-                await GetFileAsync(downloadUrl, downloadPath, progress);
+            if (EmbeddedPatchManager.HasEmbeddedPayload())
+            {
+                PatcherStatus = PatcherStatus.Patching;
+                isDecrypting = true;
+                Status = LocalizationService.Instance.StatusValidatingAndDecrypting;
+
+                if (!EmbeddedPatchManager.TryDeriveKey(gamePath, out var key, out var validatedFile))
+                {
+                    throw new Exception(LocalizationService.Instance.OriginalExeNotFoundError);
+                }
+
+                tempDecryptedZip = Path.Combine(Path.GetTempPath(), $"patch_{Path.GetRandomFileName()}.zip");
+                await EmbeddedPatchManager.DecryptPayloadAsync(key!, tempDecryptedZip, progress);
+                isDecrypting = false;
+                patchZipPath = tempDecryptedZip;
+            }
+            else
+            {
+                var platform = GetPlatformString();
+                string downloadPath = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}Patch-{platform}.zip";
+
+                if (!File.Exists(downloadPath))
+                {
+                    PatcherStatus = PatcherStatus.Downloading;
+
+                    var downloadUrl = $"https://github.com/Traducciones-Kurain/PWTrilogy-ESP/releases/latest/download/Patch-{platform}.zip";
+                    await GetFileAsync(downloadUrl, downloadPath, progress);
+                }
+
+                patchZipPath = downloadPath;
             }
 
             PatcherStatus = PatcherStatus.Patching;
+            Status = LocalizationService.Instance.StatusPatching;
 
-            var gamePath = GetContentFolder(GamePath);
-            var patchProcess = new PatchProcessAsync(gamePath, gamePath, downloadPath);
+            var patchProcess = new PatchProcessAsync(gamePath, gamePath, patchZipPath);
 
-            var result = await patchProcess.ApplyTranslation(progress);
+            var result = await patchProcess.ApplyTranslation(progress, TargetPlatform);
             if (result.Item1 != 0)
             {
                 throw new Exception($"[Mara] {result.Item2}");
+            }
+
+            // Configure Steam launch options if applicable
+            try
+            {
+                var steamPath = SteamUtils.GetSteamPath();
+                if (!string.IsNullOrWhiteSpace(steamPath))
+                {
+                    if (TargetPlatform == TargetPlatform.Linux)
+                    {
+                        SteamUtils.SetSteamLaunchOptions(steamPath, "787480", "./PWAAT.x86_64 %command%");
+                    }
+                    else
+                    {
+                        SteamUtils.ClearSteamLaunchOptions(steamPath, "787480");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SteamLaunchOptions] {ex.Message}");
             }
 
             if (updateMode)
@@ -262,23 +356,34 @@ public partial class PatcherViewModel : ViewModelBase
         }
         finally
         {
-            if (File.Exists(downloadPath))
+            isDecrypting = false;
+            if (!string.IsNullOrEmpty(tempDecryptedZip) && File.Exists(tempDecryptedZip))
             {
-                File.Delete(downloadPath);
+                try
+                {
+                    File.Delete(tempDecryptedZip);
+                }
+                catch {}
             }
-
             CanPatch = true;
         }
     }
 
     private void UpdateDownloadProgress()
     {
-        Status = $"{StatusDownloading} ({ProgressText} de {TotalText} MB)";
+        Status = LocalizationService.Instance.GetDownloadingProgressStatus(ProgressText, TotalText);
     }
 
     private void UpdatePatchProgress()
     {
-        Status = $"{StatusPatching} ({ProgressText} de {TotalText} archivos)";
+        if (isDecrypting)
+        {
+            Status = LocalizationService.Instance.GetDecryptingStatus(ProgressText, TotalText);
+        }
+        else
+        {
+            Status = LocalizationService.Instance.GetPatchingProgressStatus(ProgressText, TotalText);
+        }
     }
 
     private void UpdateProgress()
@@ -309,8 +414,9 @@ public partial class PatcherViewModel : ViewModelBase
 
     private bool CheckRootFiles(string path)
     {
-        var exePath = Path.Combine(path, "PWAAT.exe");
-        if (!File.Exists(exePath)) return false;
+        var exeWin = Path.Combine(path, "PWAAT.exe");
+        var exeLinux = Path.Combine(path, "PWAAT.x86_64");
+        if (!File.Exists(exeWin) && !File.Exists(exeLinux)) return false;
 
         var dataPath = Path.Combine(path, "PWAAT_Data");
         if (!Directory.Exists(dataPath)) return false;

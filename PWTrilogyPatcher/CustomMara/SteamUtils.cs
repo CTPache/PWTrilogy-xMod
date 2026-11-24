@@ -77,4 +77,120 @@ public static class SteamUtils
 
         return string.Empty;
     }
+
+    public static void SetSteamLaunchOptions(string steamPath, string appId, string options)
+    {
+        try
+        {
+            var userdataDir = Path.Combine(steamPath, "userdata");
+            if (!Directory.Exists(userdataDir)) return;
+
+            foreach (var userDir in Directory.GetDirectories(userdataDir))
+            {
+                var localConfig = Path.Combine(userDir, "config", "localconfig.vdf");
+                if (!File.Exists(localConfig)) continue;
+
+                var content = File.ReadAllText(localConfig);
+                var updated = UpdateVdfLaunchOptions(content, appId, options);
+                if (updated != content)
+                {
+                    File.Copy(localConfig, localConfig + ".bak", true);
+                    File.WriteAllText(localConfig, updated);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SteamUtils] Error setting launch options: {ex.Message}");
+        }
+    }
+
+    public static void ClearSteamLaunchOptions(string steamPath, string appId)
+    {
+        try
+        {
+            var userdataDir = Path.Combine(steamPath, "userdata");
+            if (!Directory.Exists(userdataDir)) return;
+
+            foreach (var userDir in Directory.GetDirectories(userdataDir))
+            {
+                var localConfig = Path.Combine(userDir, "config", "localconfig.vdf");
+                if (!File.Exists(localConfig)) continue;
+
+                var content = File.ReadAllText(localConfig);
+                var updated = UpdateVdfLaunchOptions(content, appId, null);
+                if (updated != content)
+                {
+                    File.Copy(localConfig, localConfig + ".bak", true);
+                    File.WriteAllText(localConfig, updated);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[SteamUtils] Error clearing launch options: {ex.Message}");
+        }
+    }
+
+    private static string UpdateVdfLaunchOptions(string text, string appId, string? newOpt)
+    {
+        var lines = text.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        bool inApp = false;
+        bool optFound = false;
+        int braceDepth = 0;
+        var newLines = new System.Collections.Generic.List<string>();
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i];
+            string stripped = line.Trim();
+
+            if (!inApp)
+            {
+                if (stripped == $"\"{appId}\"")
+                {
+                    inApp = true;
+                    newLines.Add(line);
+                    continue;
+                }
+            }
+            else
+            {
+                if (stripped == "{")
+                {
+                    braceDepth++;
+                    newLines.Add(line);
+                    continue;
+                }
+                else if (stripped == "}")
+                {
+                    braceDepth--;
+                    if (braceDepth <= 0)
+                    {
+                        if (!optFound && !string.IsNullOrEmpty(newOpt))
+                        {
+                            newLines.Add($"\t\t\t\t\t\t\"LaunchOptions\"\t\t\"{newOpt}\"");
+                        }
+                        inApp = false;
+                    }
+                    newLines.Add(line);
+                    continue;
+                }
+
+                if (stripped.StartsWith("\"LaunchOptions\""))
+                {
+                    optFound = true;
+                    if (!string.IsNullOrEmpty(newOpt))
+                    {
+                        newLines.Add($"\t\t\t\t\t\t\"LaunchOptions\"\t\t\"{newOpt}\"");
+                    }
+                    continue;
+                }
+            }
+
+            newLines.Add(line);
+        }
+
+        return string.Join(Environment.NewLine, newLines);
+    }
 }

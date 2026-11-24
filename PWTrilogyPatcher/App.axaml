@@ -48,7 +48,7 @@
     </Application.Styles>
 
 	<Application.Resources>
-		<FontFamily x:Key="GameFont">avares://PWTrilogyPatcher/Assets/FOT-ModeMinALargeStd-R.otf#FOT-ModeMinALarge Std</FontFamily>
+		<FontFamily x:Key="GameFont">avares://PWTrilogyPatcher/Assets/FOT-ModeMinALargeStd-R.otf#FOT-ModeMinALarge Std, Segoe UI, Noto Sans, Noto Sans CJK SC, Noto Sans CJK TC, Noto Sans CJK KR, Noto Sans CJK JP, Microsoft YaHei, Malgun Gothic, Meiryo, sans-serif</FontFamily>
 		<conv:ButtonColorConverter x:Key="ButtonColorConverter"/>
 		<conv:TextColorConverter x:Key="TextColorConverter"/>
 	</Application.Resources>

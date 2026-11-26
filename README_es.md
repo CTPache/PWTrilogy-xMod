@@ -1,6 +1,6 @@
 # Phoenix Wright: Ace Attorney Trilogy - xMod
 
-[English](README.md) | **Español**
+[English](README.md) | **Español** | [Italiano](README_it.md) | [Português (BR)](README_pt.md) | [Français](README_fr.md) | [Deutsch](README_de.md) | [日本語](README_ja.md) | [한국어](README_ko.md) | [简体中文](README_zh_cn.md) | [繁體中文](README_zh_tw.md)
 
 **PWTrilogy-xMod** es una expansión comunitaria y actualización de contenido diseñada para convertir *Phoenix Wright: Ace Attorney Trilogy* en la **edición definitiva** del juego.
 
